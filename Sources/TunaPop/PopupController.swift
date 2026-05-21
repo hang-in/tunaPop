@@ -44,6 +44,9 @@ final class PopupController {
         responsePanel.setHoverHandler { [weak self] hovering in
             self?.updateHoverState(overResponse: hovering)
         }
+        responsePanel.setSubmitPromptHandler { [weak self] prompt in
+            self?.handleSubmittedPrompt(prompt)
+        }
     }
 
     func isPointInOwnPanels(_ point: CGPoint) -> Bool {
@@ -115,6 +118,12 @@ final class PopupController {
         let origin = CGPoint(x: actionBarFrame.minX, y: resolvedY)
 
         responsePanel.show(at: origin, anchor: anchorMode)
+
+        if action.id == "customInput" {
+            responsePanel.update(state: .input)
+            return
+        }
+
         responsePanel.update(state: .loading)
 
         currentTask?.cancel()
@@ -124,6 +133,55 @@ final class PopupController {
         let includeContext = !action.prompt.contains("{selection}")
         let systemPrompt = buildSystemPrompt(settings.responseLanguage)
 
+        currentTask = Task { @MainActor [weak self] in
+            do {
+                guard let self else { return }
+                let client = LLMClientFactory.make(for: self.settings)
+                let stream = client.chatStream(
+                    model: model,
+                    prompt: prompt,
+                    payload: payloadCopy,
+                    includeSelectionContext: includeContext,
+                    systemPrompt: systemPrompt
+                )
+                var accumulated = ""
+                for try await event in stream {
+                    try Task.checkCancellation()
+                    switch event {
+                    case .chunk(let piece):
+                        accumulated += piece
+                        self.responsePanel.update(state: .success(accumulated, nil))
+                    case .done(let result):
+                        self.lastResponse = result.content.isEmpty ? accumulated : result.content
+                        let metadata = ResponseMetadata(
+                            model: result.model,
+                            totalTokens: result.promptTokens + result.completionTokens
+                        )
+                        self.responsePanel.update(state: .success(self.lastResponse, metadata))
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch let urlError as URLError where urlError.code == .cancelled {
+                return
+            } catch {
+                self?.responsePanel.update(state: .failure(error.localizedDescription))
+            }
+        }
+    }
+
+    private func handleSubmittedPrompt(_ rawPrompt: String) {
+        guard let payload = lastPayload else { return }
+        
+        responsePanel.update(state: .loading)
+        
+        currentTask?.cancel()
+        let prompt = substituteTemplate(rawPrompt, payload: payload)
+        let payloadCopy = payload
+        let model = settings.model
+        let includeContext = !rawPrompt.contains("{selection}")
+        let systemPrompt = buildSystemPrompt(settings.responseLanguage)
+        
         currentTask = Task { @MainActor [weak self] in
             do {
                 guard let self else { return }
@@ -280,7 +338,7 @@ final class PopupController {
         if case .text(let text) = payload {
             result = result.replacingOccurrences(of: "{selection}", with: text)
         }
-        let language = Locale.current.identifier
+        let language = settings.responseLanguage.systemPromptName ?? "Korean"
         result = result.replacingOccurrences(of: "{language}", with: language)
         let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
         result = result.replacingOccurrences(of: "{appBundleID}", with: bundleID)

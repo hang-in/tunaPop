@@ -37,9 +37,12 @@ struct Action: Identifiable, Equatable, Codable {
 
 extension Action {
     static let defaults: [Action] = [
-        Action(id: "explain",   label: "설명", prompt: "Explain this selection clearly and concisely.",            systemImage: "text.bubble"),
-        Action(id: "summarize", label: "요약", prompt: "Summarize this selection in three bullets.",                systemImage: "list.bullet.rectangle"),
+        Action(id: "explain",   label: "설명", prompt: "Explain the selected text clearly and concisely. If the selection is code, explain its purpose, key logic, and structure using markdown code blocks. Respond in {language}. Do not include conversational filler like 'Sure, here is...' or introductory remarks.",            systemImage: "text.bubble"),
+        Action(id: "summarize", label: "요약", prompt: "Summarize the selected text into exactly 3 clear, informative bullet points. Focus on extracting the core argument and key takeaways. Respond in {language} using a clean markdown list. Do not output anything other than the summary.",                systemImage: "list.bullet.rectangle"),
         Action(id: "translate", label: "번역", prompt: "Translate this selection. Keep meaning and tone.", systemImage: "character.bubble"),
+        Action(id: "proofread", label: "다듬기", prompt: "Proofread the selected text and improve its grammar, flow, and clarity. Respond in {language}.", systemImage: "sparkles"),
+        Action(id: "alternatives", label: "대체 표현", prompt: "Provide 3 alternative ways to express the selected text in {language}. Keep the original meaning.", systemImage: "arrow.triangle.2.circlepath"),
+        Action(id: "customInput", label: "직접 입력", prompt: "", systemImage: "pencil.line"),
     ]
 
     static let systemDefaults: [Action] = [

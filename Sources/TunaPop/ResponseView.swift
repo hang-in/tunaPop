@@ -5,9 +5,12 @@ struct ResponseView: View {
     let isPinned: Bool
     let onCopy: () -> Void
     let onTogglePin: () -> Void
+    let onSubmitPrompt: (String) -> Void
     var onHoverStateChanged: ((Bool) -> Void)? = nil
 
     @State private var didCopy = false
+    @State private var customPrompt = ""
+    @FocusState private var isTextFieldFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -61,6 +64,28 @@ struct ResponseView: View {
         switch state {
         case .idle:
             EmptyView()
+        case .input:
+            VStack(alignment: .leading, spacing: 8) {
+                Text("명령을 직접 입력하세요:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    TextField("예: 이 코드를 Python으로 변환해줘", text: $customPrompt)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($isTextFieldFocused)
+                        .onSubmit {
+                            submitCustomPrompt()
+                        }
+                    Button("전송") {
+                        submitCustomPrompt()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            }
+            .onAppear {
+                isTextFieldFocused = true
+            }
         case .loading:
             HStack(spacing: 8) {
                 ProgressView()
@@ -101,5 +126,12 @@ struct ResponseView: View {
             return attributed
         }
         return AttributedString(raw)
+    }
+
+    private func submitCustomPrompt() {
+        let trimmed = customPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        onSubmitPrompt(trimmed)
+        customPrompt = ""
     }
 }

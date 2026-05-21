@@ -12,6 +12,7 @@ final class ResponsePanel {
     private var hostingView: NSHostingView<ResponseView>?
     private var onCopy: () -> Void = {}
     private var onTogglePin: () -> Void = {}
+    private var onSubmitPrompt: (String) -> Void = { _ in }
     private(set) var isVisible: Bool = false
     private(set) var currentState: ResponseState = .idle
     private var anchor: Anchor = .top
@@ -34,6 +35,10 @@ final class ResponsePanel {
 
     func setPinHandler(_ handler: @escaping () -> Void) {
         self.onTogglePin = handler
+    }
+
+    func setSubmitPromptHandler(_ handler: @escaping (String) -> Void) {
+        self.onSubmitPrompt = handler
     }
 
     func setPinned(_ pinned: Bool) {
@@ -61,12 +66,18 @@ final class ResponsePanel {
     func update(state: ResponseState) {
         guard let panel else { return }
         currentState = state
+        
+        if let keyablePanel = panel as? KeyableNonActivatingPanel {
+            keyablePanel.isKeyWindowCapable = (state == .input)
+        }
+
         let host = ensureHostingView(initialState: state)
         host.rootView = ResponseView(
             state: state,
             isPinned: isPinned,
             onCopy: { [weak self] in self?.onCopy() },
             onTogglePin: { [weak self] in self?.onTogglePin() },
+            onSubmitPrompt: { [weak self] prompt in self?.onSubmitPrompt(prompt) },
             onHoverStateChanged: { [weak self] hovering in self?.onHover?(hovering) }
         )
 
@@ -84,6 +95,13 @@ final class ResponsePanel {
             newOrigin = CGPoint(x: oldFrame.minX, y: oldFrame.minY)
         }
         panel.setFrame(NSRect(origin: newOrigin, size: newSize), display: true)
+
+        if state == .input {
+            panel.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            panel.resignKey()
+        }
     }
 
     func dismiss() {
@@ -163,6 +181,7 @@ final class ResponsePanel {
             isPinned: isPinned,
             onCopy: { [weak self] in self?.onCopy() },
             onTogglePin: { [weak self] in self?.onTogglePin() },
+            onSubmitPrompt: { [weak self] prompt in self?.onSubmitPrompt(prompt) },
             onHoverStateChanged: { [weak self] hovering in self?.onHover?(hovering) }
         )
         let host = NSHostingView(rootView: view)

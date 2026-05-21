@@ -1,6 +1,7 @@
 import AppKit
 
 final class KeyableNonActivatingPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
+    var isKeyWindowCapable: Bool = false
+    override var canBecomeKey: Bool { isKeyWindowCapable }
+    override var canBecomeMain: Bool { isKeyWindowCapable }
 }

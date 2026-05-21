@@ -148,7 +148,7 @@ final class AppSettings: ObservableObject {
         // Load active apiToken
         let loadedApiToken = KeychainHelper.get(forAccount: loadedProvider.keychainAccount) ?? ""
 
-        let loadedDefaultPrompt = UserDefaults.standard.string(forKey: Self.defaultPromptKey) ?? "Explain this selection clearly and concisely."
+        let loadedDefaultPrompt = UserDefaults.standard.string(forKey: Self.defaultPromptKey) ?? "Explain this selection clearly and concisely in {language}."
         let positionRaw = UserDefaults.standard.string(forKey: Self.actionBarPositionKey)
         let loadedActionBarPosition = positionRaw.flatMap(ActionBarPosition.init(rawValue:)) ?? .topRight
 
