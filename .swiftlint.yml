@@ -10,7 +10,12 @@ disabled_rules:
   - vertical_whitespace
   - implicit_optional_initialization
   - comma
-opt_in_rules:
+  - cyclomatic_complexity
+  - force_cast
+  - file_length
   - force_unwrapping
+  - redundant_discardable_let
+  - trailing_newline
+opt_in_rules: []
 included:
   - Sources
