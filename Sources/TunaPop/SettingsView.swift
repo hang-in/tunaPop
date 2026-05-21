@@ -204,7 +204,7 @@ struct SettingsView: View {
             CustomActionEditor(
                 action: $viewModel.editingAction,
                 usedSymbols: viewModel.usedSymbols(excludingId: viewModel.editingBuiltinId ?? viewModel.editingAction.id),
-                onCommit: { committed in
+                onCommit: { _ in
                     viewModel.commitEditing()
                 },
                 onCancel: {
