@@ -41,8 +41,12 @@ brew install --cask tunapop
 #### Method 2 (Direct DMG)
 1. Download `tunaPop-x.y.z.dmg` from the GitHub Releases page and mount it.
 2. Drag `tunaPop.app` into your `/Applications` folder.
-3. Right-click `tunaPop.app` and choose **Open** (required for the first time).
-   Alternatively, go to **System Settings** -> **Privacy & Security** -> click **Open Anyway**.
+3. Remove the quarantine attribute so macOS allows the unsigned bundle to launch:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/tunaPop.app
+   ```
+   Alternatively, right-click `tunaPop.app` -> **Open** (first launch only), or go to
+   **System Settings** -> **Privacy & Security** -> **Open Anyway**.
 
 ### Build and Run
 
