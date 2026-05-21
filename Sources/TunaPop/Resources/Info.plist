@@ -6,6 +6,8 @@
     <string>tunaPop</string>
     <key>CFBundleDisplayName</key>
     <string>tunaPop</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>app.tunapop</string>
     <key>CFBundleVersion</key>

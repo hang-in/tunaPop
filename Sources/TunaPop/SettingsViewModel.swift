@@ -42,6 +42,17 @@ final class SettingsViewModel: ObservableObject {
                 self.isAccessibilityTrusted = Accessibility.isTrusted
             }
             .store(in: &cancellables)
+
+        Timer.publish(every: 3.0, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let trusted = Accessibility.isTrusted
+                if self.isAccessibilityTrusted != trusted {
+                    self.isAccessibilityTrusted = trusted
+                }
+            }
+            .store(in: &cancellables)
     }
 
     var showsCustomModelField: Bool {

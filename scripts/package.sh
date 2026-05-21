@@ -25,6 +25,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/apple/Products/Release/TunaPop "$APP/Contents/MacOS/tunaPop"
 cp Sources/TunaPop/Resources/Info.plist "$APP/Contents/Info.plist"
 cp Sources/TunaPop/Resources/PrivacyInfo.xcprivacy "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
+cp Sources/TunaPop/Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 # Copy Sparkle.framework (binary's rpath includes @executable_path/../lib)
 SPARKLE_FRAMEWORK="$(find .build/artifacts -type d -name 'Sparkle.framework' -path '*macos-arm64_x86_64*' 2>/dev/null | head -1)"
