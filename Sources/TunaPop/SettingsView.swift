@@ -164,7 +164,7 @@ struct SettingsView: View {
             Section("권한") {
                 permissionRow(
                     label: "Accessibility",
-                    isTrusted: Accessibility.isTrusted,
+                    isTrusted: viewModel.isAccessibilityTrusted,
                     actionTitle: "시스템 설정 열기",
                     action: { viewModel.openSystemSettings() }
                 )

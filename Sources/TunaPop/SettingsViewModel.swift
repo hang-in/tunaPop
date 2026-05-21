@@ -17,11 +17,14 @@ final class SettingsViewModel: ObservableObject {
     @Published var editingIndex: Int? = nil
     @Published var editingBuiltinId: String? = nil
 
+    @Published var isAccessibilityTrusted = Accessibility.isTrusted
+
     private var cancellables = Set<AnyCancellable>()
 
     init(settings: AppSettings) {
         self.settings = settings
         self.customModelEntry = settings.model
+        self.isAccessibilityTrusted = Accessibility.isTrusted
 
         settings.$model
             .sink { [weak self] newModel in
@@ -29,6 +32,14 @@ final class SettingsViewModel: ObservableObject {
                 if self.showsCustomModelField(for: newModel) {
                     self.customModelEntry = newModel
                 }
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.isAccessibilityTrusted = Accessibility.isTrusted
             }
             .store(in: &cancellables)
     }

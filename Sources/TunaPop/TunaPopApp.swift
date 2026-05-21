@@ -61,6 +61,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.updateStatusItemAppearance()
             }
         }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
     }
 
     private func configureStatusItem() {
@@ -118,6 +125,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func checkAccessibility() {
         Accessibility.requestIfNeeded()
+        updateStatusItemAppearance()
+    }
+
+    @objc private func handleAppDidBecomeActive() {
         updateStatusItemAppearance()
     }
 
