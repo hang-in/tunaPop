@@ -6,9 +6,9 @@ final class PopupController {
     private let settings: AppSettings
     private let actionBarPanel: ActionBarPanel
     private let responsePanel: ResponsePanel
+    private let llmRunner: LLMTaskRunner
     private var lastPayload: SelectionPayload?
     private var lastAnchor: CGPoint = .zero
-    private var currentTask: Task<Void, Never>?
     private var lastResponse: String = ""
     private var hideTimer: Timer?
     private let hoverGraceInterval: TimeInterval = 1.0
@@ -22,6 +22,7 @@ final class PopupController {
     init(settings: AppSettings) {
         self.settings = settings
         self.responsePanel = ResponsePanel()
+        self.llmRunner = LLMTaskRunner(settings: settings, responsePanel: responsePanel)
 
         var actionHandler: ((Action) -> Void)?
         let bar = ActionBarPanel { action in actionHandler?(action) }
@@ -58,8 +59,7 @@ final class PopupController {
             if Log.isVerbose { Log.popup.debug("show ignored, still loading") }
             return
         }
-        currentTask?.cancel()
-        currentTask = nil
+        llmRunner.cancel()
         cancelHideTimer()
         lastPayload = payload
         lastAnchor = anchor
@@ -81,8 +81,7 @@ final class PopupController {
 
     func dismiss() {
         if Log.isVerbose { Log.popup.debug("dismiss called") }
-        currentTask?.cancel()
-        currentTask = nil
+        llmRunner.cancel()
         cancelHideTimer()
         stopEventMonitors()
         isHoveringActionBar = false
@@ -124,98 +123,34 @@ final class PopupController {
             return
         }
 
-        responsePanel.update(state: .loading)
-
-        currentTask?.cancel()
         let prompt = resolvePrompt(for: action, payload: payload)
-        let payloadCopy = payload
-        let model = settings.model
         let includeContext = !action.prompt.contains("{selection}")
         let systemPrompt = buildSystemPrompt(settings.responseLanguage)
 
-        currentTask = Task { @MainActor [weak self] in
-            do {
-                guard let self else { return }
-                let client = LLMClientFactory.make(for: self.settings)
-                let stream = client.chatStream(
-                    model: model,
-                    prompt: prompt,
-                    payload: payloadCopy,
-                    includeSelectionContext: includeContext,
-                    systemPrompt: systemPrompt
-                )
-                var accumulated = ""
-                for try await event in stream {
-                    try Task.checkCancellation()
-                    switch event {
-                    case .chunk(let piece):
-                        accumulated += piece
-                        self.responsePanel.update(state: .success(accumulated, nil))
-                    case .done(let result):
-                        self.lastResponse = result.content.isEmpty ? accumulated : result.content
-                        let metadata = ResponseMetadata(
-                            model: result.model,
-                            totalTokens: result.promptTokens + result.completionTokens
-                        )
-                        self.responsePanel.update(state: .success(self.lastResponse, metadata))
-                    }
-                }
-            } catch is CancellationError {
-                return
-            } catch let urlError as URLError where urlError.code == .cancelled {
-                return
-            } catch {
-                self?.responsePanel.update(state: .failure(error.localizedDescription))
-            }
+        llmRunner.run(
+            prompt: prompt,
+            payload: payload,
+            includeSelectionContext: includeContext,
+            systemPrompt: systemPrompt
+        ) { [weak self] finalResult in
+            self?.lastResponse = finalResult
         }
     }
 
     private func handleSubmittedPrompt(_ rawPrompt: String) {
         guard let payload = lastPayload else { return }
         
-        responsePanel.update(state: .loading)
-        
-        currentTask?.cancel()
         let prompt = substituteTemplate(rawPrompt, payload: payload)
-        let payloadCopy = payload
-        let model = settings.model
         let includeContext = !rawPrompt.contains("{selection}")
         let systemPrompt = buildSystemPrompt(settings.responseLanguage)
         
-        currentTask = Task { @MainActor [weak self] in
-            do {
-                guard let self else { return }
-                let client = LLMClientFactory.make(for: self.settings)
-                let stream = client.chatStream(
-                    model: model,
-                    prompt: prompt,
-                    payload: payloadCopy,
-                    includeSelectionContext: includeContext,
-                    systemPrompt: systemPrompt
-                )
-                var accumulated = ""
-                for try await event in stream {
-                    try Task.checkCancellation()
-                    switch event {
-                    case .chunk(let piece):
-                        accumulated += piece
-                        self.responsePanel.update(state: .success(accumulated, nil))
-                    case .done(let result):
-                        self.lastResponse = result.content.isEmpty ? accumulated : result.content
-                        let metadata = ResponseMetadata(
-                            model: result.model,
-                            totalTokens: result.promptTokens + result.completionTokens
-                        )
-                        self.responsePanel.update(state: .success(self.lastResponse, metadata))
-                    }
-                }
-            } catch is CancellationError {
-                return
-            } catch let urlError as URLError where urlError.code == .cancelled {
-                return
-            } catch {
-                self?.responsePanel.update(state: .failure(error.localizedDescription))
-            }
+        llmRunner.run(
+            prompt: prompt,
+            payload: payload,
+            includeSelectionContext: includeContext,
+            systemPrompt: systemPrompt
+        ) { [weak self] finalResult in
+            self?.lastResponse = finalResult
         }
     }
 

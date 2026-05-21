@@ -6,9 +6,12 @@ DerivedData/
 dist/
 .omc/
 
-# Exclude all markdown files except root README.md
+# Exclude all markdown files except root README.md, README.ko.md, and docs/
 **/*.md
 *.md
 !/README.md
+!/README.ko.md
+!/docs/**/*.md
+!/docs/*.md
 
 .antigravitycli/

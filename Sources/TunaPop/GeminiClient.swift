@@ -118,14 +118,10 @@ struct GeminiClient: LLMClient {
                     var completionTokens = 0
                     var isFinished = false
 
-                    for try await line in bytes.lines {
+                    let sseStream = SSEStreamParser.parse(bytes.lines)
+                    for try await event in sseStream {
                         try Task.checkCancellation()
-                        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmed.isEmpty else { continue }
-                        guard trimmed.hasPrefix("data: ") else { continue }
-
-                        let dataStr = String(trimmed.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard let data = dataStr.data(using: .utf8),
+                        guard let data = event.data.data(using: .utf8),
                               let chunk = try? JSONDecoder().decode(GeminiStreamChunk.self, from: data) else {
                             continue
                         }

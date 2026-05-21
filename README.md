@@ -1,56 +1,73 @@
 # tunaPop
 
-tunaPop은 macOS에서 텍스트를 선택했을 때 팝업 창을 통해 AI 기반 액션과 시스템 유틸리티 기능을 빠르게 수행할 수 있도록 돕는 PopClip 스타일의 macOS 네이티브 애플리케이션입니다.
+[한국어 문서 (Korean Version)](README.ko.md)
 
-## 주요 기능
+[![Build Status](https://github.com/hang-in/tunaPop/actions/workflows/build.yml/badge.svg)](https://github.com/hang-in/tunaPop/actions/workflows/build.yml)
+[![Lint Status](https://github.com/hang-in/tunaPop/actions/workflows/lint.yml/badge.svg)](https://github.com/hang-in/tunaPop/actions/workflows/lint.yml)
+[![Platform](https://img.shields.io/badge/platform-macOS_14.0+-black.svg?style=flat&logo=apple)](https://img.shields.io/badge/platform-macOS_14.0+-black.svg?style=flat&logo=apple)
+[![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg?style=flat&logo=swift)](https://img.shields.io/badge/Swift-5.9+-orange.svg?style=flat&logo=swift)
+[![Homebrew](https://img.shields.io/badge/Homebrew-hang--in%2Ftap-orange.svg?style=flat&logo=homebrew)](https://github.com/hang-in/homebrew-tap)
 
-- **네이티브 UX**: 마우스 드래그 완료를 감지하여 선택된 텍스트 주변에 직관적인 액션 바(ActionBar) 팝업을 표시합니다.
-- **AI 액션**: 요약, 설명, 번역 등 자주 사용하는 프롬프트를 원클릭으로 실행하며, 사용자의 선택 상태에 반응하여 동적으로 프롬프트를 구성합니다.
-- **시스템 기본 기능**: LLM 호출 없이 즉시 처리할 수 있는 4가지 기본 기능(복사, 붙여넣기, 웹 검색, 사전 조회)을 내장하고 있습니다.
-- **액션 편집 및 숨김**: 내장 액션 7종(AI 액션 3종, 시스템 기능 4종)과 사용자 정의 커스텀 액션을 자유롭게 편집하여 사용할 수 있습니다. 사용하지 않는 기본 액션은 숨길 수 있으며, 원클릭으로 초기 설정 상태로 되돌리는 초기화 기능을 제공합니다.
-- **커스텀 액션 에디터**: 사용자가 직접 AI 프롬프트 액션이나 시스템 기본 제어 액션을 새롭게 정의하여 추가할 수 있으며, SF Symbols 아이콘을 선택하여 시각적으로 꾸밀 수 있습니다.
-- **로컬 LLM 및 에이전트 제공자 연동**: Ollama 호환 API를 연동하여 로컬 환경에서 모델을 독립 실행하므로 개인정보 유출을 방지합니다.
-- **보안 및 권한 관리**: 시스템 키체인(Keychain)을 활용하여 API 토큰을 안전하게 관리하며, 손쉬운 사용(Accessibility) 권한을 메뉴 막대 및 설정 창을 통해 제어할 수 있습니다.
+tunaPop is a PopClip-style native macOS utility that helps you quickly perform AI-based actions and system tasks via a floating popup bar when selecting text on your screen.
 
-## 시작하기
+## Key Features
 
-### 요구 사항
+- **Native UX**: Instantly detects text drag selections or double-clicks and displays an intuitive ActionBar popup right next to your cursor.
+- **AI Actions**: Run pre-configured AI tasks (Summarize, Explain, Translate) with a single click, dynamically incorporating your text selection.
+- **System Utilities**: Built-in support for 4 core system actions (Copy, Paste, Web Search, Dictionary Look-up) that execute locally without network overhead.
+- **Action Customization**: Hide unused default actions, configure custom order, and easily reset to factory settings.
+- **Custom Action Editor**: Create your own custom AI prompt or system actions with customized SF Symbols icons.
+- **Provider Integrations**: Supports local Ollama endpoints (running on your machine for maximum privacy) as well as cloud API providers (Gemini, OpenAI, Anthropic).
+- **Secure Token Storage**: Safely manages API keys and passwords using the native macOS Keychain.
+- **Accessibility & Permissions**: Easy checking and requesting of macOS Accessibility permissions through the status bar and Settings window.
 
-- macOS 14.0 이상 (Swift 5.9 이상, AppKit 및 SwiftUI)
-- 로컬 또는 원격 Ollama 서버 (기본값: http://localhost:11434)
+## Getting Started
 
-### 설치 (OSS 빌드)
+### Requirements
 
-서명되지 않은 빌드라 macOS가 처음 실행 시 차단합니다. 아래 방법으로 실행할 수 있습니다.
+- macOS 14.0 or later (Swift 5.9+, AppKit & SwiftUI)
+- Local or remote Ollama server (default: http://localhost:11434) or API keys for other external provider integrations.
 
-#### 방법 1 (Homebrew, 권장)
+### Installation (OSS Build)
+
+Since the app is built locally without signing, macOS Gatekeeper may block it upon first launch. Use one of the methods below to run it.
+
+#### Method 1 (Homebrew - Recommended)
 ```bash
 brew tap hang-in/tap
 brew install --cask tunapop
 ```
 
-#### 방법 2 (DMG 직접 설치)
-1. GitHub Releases에서 `tunaPop-x.y.z.dmg` 다운로드 후 마운트합니다.
-2. `tunaPop.app`을 `/Applications` (응용 프로그램) 폴더로 드래그합니다.
-3. `tunaPop.app`을 마우스 우클릭 -> **열기**를 선택합니다. (최초 1회만 필요)
-   또는 **시스템 설정** -> **개인정보 보호 및 보안** -> **어쨌든 열기**를 클릭하여 실행합니다.
+#### Method 2 (Direct DMG)
+1. Download `tunaPop-x.y.z.dmg` from the GitHub Releases page and mount it.
+2. Drag `tunaPop.app` into your `/Applications` folder.
+3. Right-click `tunaPop.app` and choose **Open** (required for the first time).
+   Alternatively, go to **System Settings** -> **Privacy & Security** -> click **Open Anyway**.
 
-### 빌드 및 실행
+### Build and Run
 
-프로젝트 루트 디렉토리에서 아래 명령어를 실행하여 앱을 빌드하고 실행할 수 있습니다.
+You can build and run the application from the project root directory:
 
 ```bash
 swift build
 ```
 
-마우스 드래그 및 텍스트 선택 치환을 감지하고 제어하기 위해 실행 시 macOS '손쉬운 사용(Accessibility)' 권한 승인이 필요합니다.
+*Note: The application requires macOS Accessibility permissions to monitor mouse drags and automate text insertions.*
 
-## 설정
+## Settings
 
-설정 화면을 통해 다음과 같은 내용을 조정할 수 있습니다.
+Customize the app's behavior through the Settings Window:
 
-- **Agent**: 에이전트 제공자, 엔드포인트 주소, API 토큰(키체인 저장), 모델 목록 및 커스텀 모델 설정
-- **응답 언어**: AI 결과물 응답 언어 고정 설정 (자동, 영어, 한국어, 일본어, 중국어)
-- **ActionBar**: 액션 바가 나타나는 8방향 위치 세부 설정
-- **액션**: 7종의 기본 내장 액션(수정, 숨김, 공장 초기화) 및 커스텀 액션 추가/정렬/삭제 제어
-- **권한**: 시스템 접근성 권한 상태 확인 및 바로가기 제공
+- **Agent**: Pick your LLM provider, endpoint URL, model, and securely enter API keys (saved in Keychain).
+- **Response Language**: Fix the output language for AI actions (Auto, English, Korean, Japanese, Chinese).
+- **ActionBar**: Fine-tune the popup offset and positioning (8 directions).
+- **Actions**: Customize, reorder, hide default actions, or create new custom actions.
+- **Permissions**: Verify and easily request accessibility permissions.
+
+## Architecture & Refactoring
+
+tunaPop is written in Swift with a combination of AppKit window management and SwiftUI views. To keep the project clean, scalable, and stable, we recently completed a major architectural refactoring:
+
+- **MVVM Architecture**: Separated user configuration logic, timer polling, and provider API model refreshing from the declaration of `SettingsView` into a newly established `SettingsViewModel`.
+- **Decoupled LLM Task Runner**: Enhanced Single Responsibility Principle (SRP) by extracting async streaming LLM call coordination from `PopupController` into a dedicated `LLMTaskRunner`.
+- **Unified SSE Stream Parser**: Replaced custom, redundant server-sent events parsing logic in each provider (`GeminiClient`, `OpenAIClient`, `OllamaClient`, `AnthropicClient`) with a single generic helper class `SSEStreamParser` to reconstruct byte chunk streams reliably.

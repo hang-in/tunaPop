@@ -110,14 +110,10 @@ struct OpenAIClient: LLMClient {
                     var promptTokens = 0
                     var completionTokens = 0
 
-                    for try await line in bytes.lines {
+                    let sseStream = SSEStreamParser.parse(bytes.lines)
+                    for try await event in sseStream {
                         try Task.checkCancellation()
-                        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmed.isEmpty else { continue }
-                        guard trimmed.hasPrefix("data: ") else { continue }
-
-                        let dataStr = String(trimmed.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
-                        if dataStr == "[DONE]" {
+                        if event.data == "[DONE]" {
                             if !isFinished {
                                 let result = LLMChatResult(
                                     content: accumulated,
@@ -132,7 +128,7 @@ struct OpenAIClient: LLMClient {
                             return
                         }
 
-                        guard let data = dataStr.data(using: .utf8),
+                        guard let data = event.data.data(using: .utf8),
                               let chunk = try? JSONDecoder().decode(OpenAIStreamChunk.self, from: data) else {
                             continue
                         }

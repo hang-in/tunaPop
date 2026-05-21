@@ -11,24 +11,19 @@ extension Bundle {
 }
 
 struct SettingsView: View {
-    @ObservedObject var settings: AppSettings
+    @StateObject private var viewModel: SettingsViewModel
+    @ObservedObject private var settings: AppSettings
+
+    init(settings: AppSettings) {
+        self.settings = settings
+        self._viewModel = StateObject(wrappedValue: SettingsViewModel(settings: settings))
+    }
 
     private static var appDelegate: AppDelegate? {
         NSApplication.shared.delegate as? AppDelegate
     }
 
-    @State private var fetchedModels: [String] = []
-    @State private var lastFetched: Date?
-    @State private var isFetching = false
-    @State private var fetchError: String?
-    @State private var customModelEntry: String = ""
-
     @State private var permissionRefreshTick = Date()
-
-    @State private var isEditing = false
-    @State private var editingAction: Action = Action(id: "", label: "", prompt: "", systemImage: "text.bubble")
-    @State private var editingIndex: Int? = nil
-    @State private var editingBuiltinId: String? = nil
 
     private var endpointSelection: Binding<String> {
         Binding<String>(
@@ -44,10 +39,6 @@ struct SettingsView: View {
         )
     }
 
-    private var showsCustomModelField: Bool {
-        settings.model.isEmpty || !fetchedModels.contains(settings.model)
-    }
-
     private var modelSelection: Binding<String> {
         Binding<String>(
             get: {
@@ -58,7 +49,7 @@ struct SettingsView: View {
             },
             set: { newValue in
                 if newValue.isEmpty {
-                    settings.model = customModelEntry
+                    settings.model = viewModel.customModelEntry
                 } else {
                     settings.model = newValue
                 }
@@ -76,14 +67,14 @@ struct SettingsView: View {
                 }
                 .onChange(of: settings.agentProvider) { _, _ in
                     Task {
-                        await refreshModels()
+                        await viewModel.refreshModels()
                     }
                 }
                 
                 TextField("Endpoint", text: endpointSelection)
                     .textFieldStyle(.roundedBorder)
                 
-                if !isLocalEndpoint(settings.endpoint) {
+                if !viewModel.isLocalEndpoint(settings.endpoint) {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -95,11 +86,11 @@ struct SettingsView: View {
                 
                 HStack {
                     Picker("Model", selection: modelSelection) {
-                        ForEach(fetchedModels, id: \.self) { model in
+                        ForEach(viewModel.fetchedModels, id: \.self) { model in
                             Text(model).tag(model)
                         }
                         
-                        if !settings.model.isEmpty && !fetchedModels.contains(settings.model) {
+                        if !settings.model.isEmpty && !viewModel.fetchedModels.contains(settings.model) {
                             Text("Custom: \(settings.model)").tag(settings.model)
                         }
                         
@@ -108,21 +99,21 @@ struct SettingsView: View {
                     
                     Button {
                         Task {
-                            await refreshModels()
+                            await viewModel.refreshModels()
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .buttonStyle(.borderless)
                     .help("모델 목록 새로고침")
-                    .disabled(isFetching)
+                    .disabled(viewModel.isFetching)
                 }
                 
-                if showsCustomModelField {
-                    TextField("Custom model", text: $customModelEntry)
+                if viewModel.showsCustomModelField {
+                    TextField("Custom model", text: $viewModel.customModelEntry)
                         .textFieldStyle(.roundedBorder)
-                        .onChange(of: customModelEntry) { _, newValue in
-                            settings.model = newValue
+                        .onChange(of: viewModel.customModelEntry) { _, newValue in
+                            viewModel.updateCustomModel(newValue)
                         }
                 }
                 
@@ -163,8 +154,7 @@ struct SettingsView: View {
                     settings.customActions.move(fromOffsets: fromOffsets, toOffset: toOffset)
                 }
                 Button {
-                    editingAction = newDraftAction()
-                    isEditing = true
+                    viewModel.startEditingNewAction()
                 } label: {
                     Label("새 액션 추가", systemImage: "plus.circle")
                 }
@@ -176,7 +166,7 @@ struct SettingsView: View {
                     label: "Accessibility",
                     isTrusted: Accessibility.isTrusted,
                     actionTitle: "시스템 설정 열기",
-                    action: { openSystemSettings(.accessibility) }
+                    action: { viewModel.openSystemSettings() }
                 )
             }
 
@@ -191,7 +181,7 @@ struct SettingsView: View {
             }
 
             Section {
-                if let error = fetchError, isLocalEndpoint(settings.endpoint) {
+                if let error = viewModel.fetchError, viewModel.isLocalEndpoint(settings.endpoint) {
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -210,63 +200,29 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 480)
-        .sheet(isPresented: $isEditing) {
+        .sheet(isPresented: $viewModel.isEditing) {
             CustomActionEditor(
-                action: $editingAction,
-                usedSymbols: usedSymbols(excludingId: editingBuiltinId ?? editingAction.id),
+                action: $viewModel.editingAction,
+                usedSymbols: viewModel.usedSymbols(excludingId: viewModel.editingBuiltinId ?? viewModel.editingAction.id),
                 onCommit: { committed in
-                    if let bid = editingBuiltinId {
-                        settings.builtinOverrides[bid] = committed
-                    } else if let idx = editingIndex {
-                        settings.customActions[idx] = committed
-                    } else {
-                        settings.customActions.append(committed)
-                    }
-                    isEditing = false
-                    editingIndex = nil
-                    editingBuiltinId = nil
+                    viewModel.commitEditing()
                 },
                 onCancel: {
-                    isEditing = false
-                    editingIndex = nil
-                    editingBuiltinId = nil
+                    viewModel.cancelEditing()
                 }
             )
         }
         .task {
-            if showsCustomModelField {
-                customModelEntry = settings.model
+            if viewModel.showsCustomModelField {
+                viewModel.customModelEntry = settings.model
             }
             
-            if lastFetched == nil || Date().timeIntervalSince(lastFetched!) > 60 {
-                await refreshModels()
+            if viewModel.lastFetched == nil || Date().timeIntervalSince(viewModel.lastFetched!) > 60 {
+                await viewModel.refreshModels()
             }
         }
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
             permissionRefreshTick = Date()
-        }
-    }
-
-    @MainActor
-    private func refreshModels() async {
-        guard !isFetching else { return }
-        isFetching = true
-        fetchError = nil
-        defer { isFetching = false }
-        do {
-            let client = LLMClientFactory.make(for: settings)
-            fetchedModels = try await client.listModels()
-            lastFetched = Date()
-            
-            if showsCustomModelField {
-                customModelEntry = settings.model
-            }
-        } catch is CancellationError {
-            // silent
-        } catch let urlError as URLError where urlError.code == .cancelled {
-            // silent
-        } catch {
-            fetchError = error.localizedDescription
         }
     }
 
@@ -288,25 +244,6 @@ struct SettingsView: View {
         }
     }
 
-    private enum PrivacyPanel: String {
-        case accessibility = "Privacy_Accessibility"
-    }
-
-    private func openSystemSettings(_ panel: PrivacyPanel) {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(panel.rawValue)")
-            ?? URL(string: "x-apple.systempreferences:com.apple.preference.security")!
-        NSWorkspace.shared.open(url)
-    }
-
-    private func isLocalEndpoint(_ raw: String) -> Bool {
-        guard let url = URL(string: raw.trimmingCharacters(in: .whitespacesAndNewlines)),
-              let host = url.host else {
-            return true
-        }
-        let lower = host.lowercased()
-        return lower == "localhost" || lower == "127.0.0.1" || lower == "::1"
-    }
-
     @ViewBuilder
     private func builtInRow(action: Action, originalId: String) -> some View {
         let isHidden = settings.isHidden(originalId)
@@ -323,10 +260,7 @@ struct SettingsView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Button {
-                editingAction = action
-                editingIndex = nil
-                editingBuiltinId = originalId
-                isEditing = true
+                viewModel.startEditingBuiltin(action: action, originalId: originalId)
             } label: {
                 Image(systemName: "pencil")
             }
@@ -363,7 +297,7 @@ struct SettingsView: View {
             Spacer()
 
             Button {
-                moveUp(action: action)
+                viewModel.moveUp(action: action)
             } label: {
                 Image(systemName: "chevron.up")
             }
@@ -371,7 +305,7 @@ struct SettingsView: View {
             .disabled(settings.customActions.firstIndex(where: { $0.id == action.id }) == 0)
 
             Button {
-                moveDown(action: action)
+                viewModel.moveDown(action: action)
             } label: {
                 Image(systemName: "chevron.down")
             }
@@ -379,9 +313,7 @@ struct SettingsView: View {
             .disabled(settings.customActions.firstIndex(where: { $0.id == action.id }) == settings.customActions.count - 1)
 
             Button {
-                editingAction = action
-                editingIndex = settings.customActions.firstIndex(where: { $0.id == action.id })
-                isEditing = true
+                viewModel.startEditingCustom(action: action)
             } label: {
                 Image(systemName: "pencil")
             }
@@ -389,45 +321,12 @@ struct SettingsView: View {
             .help("수정")
 
             Button {
-                settings.customActions.removeAll(where: { $0.id == action.id })
+                viewModel.deleteCustomAction(action)
             } label: {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
             .help("삭제")
         }
-    }
-
-    private func newDraftAction() -> Action {
-        Action(
-            id: UUID().uuidString,
-            label: "",
-            prompt: "",
-            systemImage: "text.bubble"
-        )
-    }
-
-    private func usedSymbols(excludingId: String) -> Set<String> {
-        var symbols: Set<String> = []
-        for action in Action.allBuiltins {
-            let resolved = settings.resolvedBuiltin(action)
-            if resolved.id == excludingId { continue }
-            symbols.insert(resolved.systemImage)
-        }
-        for action in settings.customActions {
-            if action.id == excludingId { continue }
-            symbols.insert(action.systemImage)
-        }
-        return symbols
-    }
-
-    private func moveUp(action: Action) {
-        guard let index = settings.customActions.firstIndex(where: { $0.id == action.id }), index > 0 else { return }
-        settings.customActions.swapAt(index, index - 1)
-    }
-
-    private func moveDown(action: Action) {
-        guard let index = settings.customActions.firstIndex(where: { $0.id == action.id }), index < settings.customActions.count - 1 else { return }
-        settings.customActions.swapAt(index, index + 1)
     }
 }

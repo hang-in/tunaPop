@@ -63,65 +63,55 @@ struct AnthropicClient: LLMClient {
                         throw LLMClientError.requestFailed("Streaming request failed with status \(httpResponse.statusCode)")
                     }
 
-                    var eventName = ""
                     var promptTokens = 0
                     var completionTokens = 0
                     var accumulated = ""
                     var finalModel = model
                     var isFinished = false
 
-                    for try await line in bytes.lines {
+                    let sseStream = SSEStreamParser.parse(bytes.lines)
+                    for try await event in sseStream {
                         try Task.checkCancellation()
-                        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmed.isEmpty else { continue }
+                        guard let data = event.data.data(using: .utf8) else { continue }
+                        let eventName = event.name ?? ""
 
-                        if trimmed.hasPrefix("event: ") {
-                            eventName = String(trimmed.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
-                            continue
-                        }
-
-                        if trimmed.hasPrefix("data: ") {
-                            let dataStr = String(trimmed.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard let data = dataStr.data(using: .utf8) else { continue }
-
-                            switch eventName {
-                            case "message_start":
-                                if let start = try? JSONDecoder().decode(AnthropicMessageStart.self, from: data) {
-                                    if let m = start.message.model {
-                                        finalModel = m
-                                    }
-                                    if let input = start.message.usage?.inputTokens {
-                                        promptTokens = input
-                                    }
+                        switch eventName {
+                        case "message_start":
+                            if let start = try? JSONDecoder().decode(AnthropicMessageStart.self, from: data) {
+                                if let m = start.message.model {
+                                    finalModel = m
                                 }
-                            case "content_block_delta":
-                                if let delta = try? JSONDecoder().decode(AnthropicContentBlockDelta.self, from: data),
-                                   delta.delta.type == "text_delta",
-                                   let text = delta.delta.text, !text.isEmpty {
-                                    accumulated += text
-                                    continuation.yield(.chunk(text))
+                                if let input = start.message.usage?.inputTokens {
+                                    promptTokens = input
                                 }
-                            case "message_delta":
-                                if let delta = try? JSONDecoder().decode(AnthropicMessageDelta.self, from: data),
-                                   let output = delta.usage?.outputTokens {
-                                    completionTokens = output
-                                }
-                            case "message_stop":
-                                if !isFinished {
-                                    let result = LLMChatResult(
-                                        content: accumulated,
-                                        model: finalModel,
-                                        promptTokens: promptTokens,
-                                        completionTokens: completionTokens
-                                    )
-                                    continuation.yield(.done(result))
-                                    isFinished = true
-                                }
-                                continuation.finish()
-                                return
-                            default:
-                                break
                             }
+                        case "content_block_delta":
+                            if let delta = try? JSONDecoder().decode(AnthropicContentBlockDelta.self, from: data),
+                               delta.delta.type == "text_delta",
+                               let text = delta.delta.text, !text.isEmpty {
+                                accumulated += text
+                                continuation.yield(.chunk(text))
+                            }
+                        case "message_delta":
+                            if let delta = try? JSONDecoder().decode(AnthropicMessageDelta.self, from: data),
+                               let output = delta.usage?.outputTokens {
+                                completionTokens = output
+                            }
+                        case "message_stop":
+                            if !isFinished {
+                                let result = LLMChatResult(
+                                    content: accumulated,
+                                    model: finalModel,
+                                    promptTokens: promptTokens,
+                                    completionTokens: completionTokens
+                                )
+                                continuation.yield(.done(result))
+                                isFinished = true
+                            }
+                            continuation.finish()
+                            return
+                        default:
+                            break
                         }
                     }
 
