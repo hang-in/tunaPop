@@ -46,7 +46,15 @@ final class PopupController {
         }
     }
 
+    func isPointInOwnPanels(_ point: CGPoint) -> Bool {
+        return actionBarPanel.contains(point: point) || responsePanel.contains(point: point)
+    }
+
     func show(payload: SelectionPayload, at anchor: CGPoint) {
+        if case .loading = responsePanel.currentState {
+            NSLog("tunaPop show ignored: response still loading")
+            return
+        }
         currentTask?.cancel()
         currentTask = nil
         cancelHideTimer()
@@ -55,8 +63,12 @@ final class PopupController {
         lastResponse = ""
         responsePanel.dismiss()
 
+        let visibleBuiltins = Action.allBuiltins
+            .filter { !settings.isHidden($0.id) }
+            .map { settings.resolvedBuiltin($0) }
+        let allActions = visibleBuiltins + settings.customActions
         actionBarPanel.show(
-            actions: Action.defaults,
+            actions: allActions,
             at: anchor,
             position: settings.actionBarPosition
         )
@@ -65,6 +77,7 @@ final class PopupController {
     }
 
     func dismiss() {
+        NSLog("tunaPop dismiss: called")
         currentTask?.cancel()
         currentTask = nil
         cancelHideTimer()
@@ -80,6 +93,13 @@ final class PopupController {
     private func handleAction(_ action: Action) {
         guard let payload = lastPayload else { return }
         cancelHideTimer()
+
+        if action.kind == .system, let systemType = action.systemType {
+            actionBarPanel.dismiss()
+            SystemActionExecutor.run(systemType, payload: payload)
+            dismiss()
+            return
+        }
 
         let actionBarFrame = actionBarPanel.frame
         actionBarPanel.dismiss()
@@ -98,16 +118,24 @@ final class PopupController {
         responsePanel.update(state: .loading)
 
         currentTask?.cancel()
-        let prompt = action.prompt
+        let prompt = resolvePrompt(for: action, payload: payload)
         let payloadCopy = payload
         let endpoint = settings.endpoint
         let token = settings.apiToken
         let model = settings.model
+        let includeContext = !action.prompt.contains("{selection}")
+        let systemPrompt = buildSystemPrompt(settings.responseLanguage)
 
         currentTask = Task { @MainActor [weak self] in
             do {
                 let client = OllamaClient(endpoint: endpoint, token: token)
-                let result = try await client.chat(model: model, prompt: prompt, payload: payloadCopy)
+                let result = try await client.chat(
+                    model: model,
+                    prompt: prompt,
+                    payload: payloadCopy,
+                    includeSelectionContext: includeContext,
+                    systemPrompt: systemPrompt
+                )
                 try Task.checkCancellation()
                 guard let self else { return }
                 self.lastResponse = result.content
@@ -134,7 +162,10 @@ final class PopupController {
     }
 
     private func toggleResponsePinned() {
-        responsePanel.setPinned(!responsePanel.pinned)
+        let beforePinned = responsePanel.pinned
+        NSLog("tunaPop togglePin: before=\(beforePinned)")
+        responsePanel.setPinned(!beforePinned)
+        NSLog("tunaPop togglePin: after=\(responsePanel.pinned)")
         if !responsePanel.pinned {
             updateHoverState()
         } else {
@@ -149,12 +180,14 @@ final class PopupController {
         if let overResponse {
             self.isHoveringResponsePanel = overResponse
         }
+        NSLog("tunaPop hoverState: actionBar=\(isHoveringActionBar) response=\(isHoveringResponsePanel) pinned=\(responsePanel.pinned)")
 
         if isHoveringActionBar || isHoveringResponsePanel {
             cancelHideTimer()
         } else {
-            if responsePanel.pinned { return }
-            if case .loading = responsePanel.currentState { return }
+            if responsePanel.pinned { NSLog("tunaPop hoverState: skip schedule (pinned)"); return }
+            if case .loading = responsePanel.currentState { NSLog("tunaPop hoverState: skip schedule (loading)"); return }
+            NSLog("tunaPop hoverState: scheduling hide timer")
             scheduleHideTimer()
         }
     }
@@ -202,11 +235,55 @@ final class PopupController {
     }
 
     private func dismissIfOutside(_ point: CGPoint) {
-        if actionBarPanel.contains(point: point) || responsePanel.contains(point: point) {
+        let inAction = actionBarPanel.contains(point: point)
+        let inResponse = responsePanel.contains(point: point)
+        NSLog("tunaPop dismissIfOutside: point=\(point) inAction=\(inAction) inResponse=\(inResponse) pinned=\(responsePanel.pinned) responseFrame=\(responsePanel.frame)")
+        if inAction || inResponse {
             return
         }
         if responsePanel.pinned { return }
         if case .loading = responsePanel.currentState { return }
+        NSLog("tunaPop dismissIfOutside: dismissing")
         dismiss()
+    }
+
+    private func resolvePrompt(for action: Action, payload: SelectionPayload) -> String {
+        let langName = settings.responseLanguage.systemPromptName ?? "Korean"
+        let base: String
+        switch action.id {
+        case "translate":
+            if case .text(let text) = payload, isShortWord(text) {
+                base = "Explain the selected word in \(langName) dictionary format. Include meaning, part of speech, and one short example."
+            } else {
+                base = "Translate this selection into \(langName). Keep meaning and tone."
+            }
+        default:
+            base = action.prompt
+        }
+        return substituteTemplate(base, payload: payload)
+    }
+
+    private func substituteTemplate(_ raw: String, payload: SelectionPayload) -> String {
+        var result = raw
+        if case .text(let text) = payload {
+            result = result.replacingOccurrences(of: "{selection}", with: text)
+        }
+        let language = Locale.current.identifier
+        result = result.replacingOccurrences(of: "{language}", with: language)
+        let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+        result = result.replacingOccurrences(of: "{appBundleID}", with: bundleID)
+        return result
+    }
+
+    private func buildSystemPrompt(_ language: ResponseLanguage) -> String? {
+        guard let name = language.systemPromptName else { return nil }
+        return "Always reply in \(name). Use natural, concise wording. Do not add introductory or closing filler."
+    }
+
+    private func isShortWord(_ raw: String) -> Bool {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count > 20 { return false }
+        let tokens = trimmed.split(whereSeparator: { $0.isWhitespace })
+        return tokens.count <= 2
     }
 }

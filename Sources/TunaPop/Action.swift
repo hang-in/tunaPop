@@ -1,16 +1,81 @@
 import Foundation
 
-struct Action: Identifiable, Equatable {
+struct Action: Identifiable, Equatable, Codable {
     let id: String
     let label: String
     let prompt: String
     let systemImage: String
+    let kind: ActionKind
+    let systemType: SystemActionType?
+
+    init(
+        id: String,
+        label: String,
+        prompt: String,
+        systemImage: String,
+        kind: ActionKind = .ai,
+        systemType: SystemActionType? = nil
+    ) {
+        self.id = id
+        self.label = label
+        self.prompt = prompt
+        self.systemImage = systemImage
+        self.kind = kind
+        self.systemType = systemType
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        label = try c.decode(String.self, forKey: .label)
+        prompt = try c.decode(String.self, forKey: .prompt)
+        systemImage = try c.decode(String.self, forKey: .systemImage)
+        kind = try c.decodeIfPresent(ActionKind.self, forKey: .kind) ?? .ai
+        systemType = try c.decodeIfPresent(SystemActionType.self, forKey: .systemType)
+    }
 }
 
 extension Action {
     static let defaults: [Action] = [
-        Action(id: "explain",   label: "설명", prompt: "Explain this selection clearly and concisely.",            systemImage: "text.alignleft"),
-        Action(id: "summarize", label: "요약", prompt: "Summarize this selection in three bullets.",                systemImage: "list.bullet"),
-        Action(id: "translate", label: "번역", prompt: "Translate this selection into Korean. Keep meaning and tone.", systemImage: "globe"),
+        Action(id: "explain",   label: "설명", prompt: "Explain this selection clearly and concisely.",            systemImage: "text.bubble"),
+        Action(id: "summarize", label: "요약", prompt: "Summarize this selection in three bullets.",                systemImage: "list.bullet.rectangle"),
+        Action(id: "translate", label: "번역", prompt: "Translate this selection into Korean. Keep meaning and tone.", systemImage: "character.bubble"),
     ]
+
+    static let systemDefaults: [Action] = [
+        Action(
+            id: "system.copy",
+            label: SystemActionType.copy.defaultLabel,
+            prompt: "",
+            systemImage: SystemActionType.copy.defaultSystemImage,
+            kind: .system,
+            systemType: .copy
+        ),
+        Action(
+            id: "system.paste",
+            label: SystemActionType.paste.defaultLabel,
+            prompt: "",
+            systemImage: SystemActionType.paste.defaultSystemImage,
+            kind: .system,
+            systemType: .paste
+        ),
+        Action(
+            id: "system.webSearch",
+            label: SystemActionType.webSearch.defaultLabel,
+            prompt: "",
+            systemImage: SystemActionType.webSearch.defaultSystemImage,
+            kind: .system,
+            systemType: .webSearch
+        ),
+        Action(
+            id: "system.lookUp",
+            label: SystemActionType.lookUp.defaultLabel,
+            prompt: "",
+            systemImage: SystemActionType.lookUp.defaultSystemImage,
+            kind: .system,
+            systemType: .lookUp
+        ),
+    ]
+
+    static var allBuiltins: [Action] { defaults + systemDefaults }
 }

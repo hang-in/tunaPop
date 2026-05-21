@@ -72,7 +72,7 @@ struct ResponseView: View {
         case .success(let text, let metadata):
             VStack(alignment: .leading, spacing: 6) {
                 ScrollView {
-                    Text(text)
+                    Text(markdownAttributed(text))
                         .font(.callout)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -91,5 +91,15 @@ struct ResponseView: View {
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private func markdownAttributed(_ raw: String) -> AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        )
+        if let attributed = try? AttributedString(markdown: raw, options: options) {
+            return attributed
+        }
+        return AttributedString(raw)
     }
 }

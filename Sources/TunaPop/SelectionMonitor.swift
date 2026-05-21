@@ -44,10 +44,11 @@ final class SelectionMonitor {
     private func handle(type: NSEvent.EventType, location: CGPoint, clickCount: Int) {
         switch type {
         case .leftMouseDown:
+            NSLog("tunaPop SelectionMonitor: mouseDown clickCount=\(clickCount) loc=\(location)")
             dragStart = location
             didDrag = false
             if clickCount >= 2 {
-                triggerSelection()
+                triggerSelection(delayMillis: 200)
             }
         case .leftMouseDragged:
             guard let dragStart else { return }
@@ -57,16 +58,17 @@ final class SelectionMonitor {
             }
         case .leftMouseUp:
             guard didDrag else { return }
-            triggerSelection()
+            triggerSelection(delayMillis: 120)
         default:
             break
         }
     }
 
-    private func triggerSelection() {
+    private func triggerSelection(delayMillis: Int) {
         let point = NSEvent.mouseLocation
+        NSLog("tunaPop SelectionMonitor: triggerSelection at \(point) delay=\(delayMillis)")
         Task {
-            try? await Task.sleep(for: .milliseconds(120))
+            try? await Task.sleep(for: .milliseconds(delayMillis))
             guard let payload = await SelectionExtractor.currentSelection() else { return }
             onSelection(payload, point)
         }

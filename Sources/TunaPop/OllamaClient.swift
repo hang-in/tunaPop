@@ -4,7 +4,13 @@ struct OllamaClient {
     var endpoint: String
     var token: String
 
-    func chat(model: String, prompt: String, payload: SelectionPayload) async throws -> OllamaChatResult {
+    func chat(
+        model: String,
+        prompt: String,
+        payload: SelectionPayload,
+        includeSelectionContext: Bool = true,
+        systemPrompt: String? = nil
+    ) async throws -> OllamaChatResult {
         guard let baseURL = URL(string: endpoint.trimmingCharacters(in: .whitespacesAndNewlines)) else {
             throw OllamaError.invalidEndpoint
         }
@@ -22,12 +28,22 @@ struct OllamaClient {
         let userMessage: OllamaMessage
         switch payload {
         case .text(let text):
-            userMessage = OllamaMessage(role: "user", content: "\(prompt)\n\nSelection:\n\(text)", images: nil)
+            if includeSelectionContext {
+                userMessage = OllamaMessage(role: "user", content: "\(prompt)\n\nSelection:\n\(text)", images: nil)
+            } else {
+                userMessage = OllamaMessage(role: "user", content: prompt, images: nil)
+            }
         case .image:
             userMessage = OllamaMessage(role: "user", content: prompt, images: payload.imageBase64PNG.map { [$0] })
         }
 
-        let body = OllamaChatRequest(model: model, messages: [userMessage], stream: false)
+        var messages: [OllamaMessage] = []
+        if let systemPrompt, !systemPrompt.isEmpty {
+            messages.append(OllamaMessage(role: "system", content: systemPrompt, images: nil))
+        }
+        messages.append(userMessage)
+
+        let body = OllamaChatRequest(model: model, messages: messages, stream: false)
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
