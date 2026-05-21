@@ -8,6 +8,11 @@ enum KeychainHelper {
         case unhandled(OSStatus)
     }
 
+    private static func logError(status: OSStatus, action: String, account: String) {
+        let message = SecCopyErrorMessageString(status, nil) as String? ?? "Unknown error"
+        Log.system.error("Keychain error during \(action) for \(account): status \(status) (\(message))")
+    }
+
     static func set(_ value: String, forAccount account: String) throws {
         if value.isEmpty {
             try remove(forAccount: account)
@@ -34,9 +39,11 @@ enum KeychainHelper {
             newQuery[kSecValueData] = data
             let addStatus = SecItemAdd(newQuery as CFDictionary, nil)
             if addStatus != errSecSuccess {
+                logError(status: addStatus, action: "SecItemAdd", account: account)
                 throw Failure.unhandled(addStatus)
             }
         } else if status != errSecSuccess {
+            logError(status: status, action: "SecItemUpdate", account: account)
             throw Failure.unhandled(status)
         }
     }
@@ -55,6 +62,9 @@ enum KeychainHelper {
         if status == errSecSuccess, let data = dataTypeRef as? Data {
             return String(data: data, encoding: .utf8)
         }
+        if status != errSecSuccess && status != errSecItemNotFound {
+            logError(status: status, action: "SecItemCopyMatching", account: account)
+        }
         return nil
     }
 
@@ -67,6 +77,7 @@ enum KeychainHelper {
 
         let status = SecItemDelete(query as CFDictionary)
         if status != errSecSuccess && status != errSecItemNotFound {
+            logError(status: status, action: "SecItemDelete", account: account)
             throw Failure.unhandled(status)
         }
     }

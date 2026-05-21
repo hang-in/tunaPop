@@ -167,8 +167,10 @@ struct OpenAIClient: LLMClient {
                     continuation.finish()
 
                 } catch is CancellationError {
+                    Log.network.info("OpenAI stream cancelled (CancellationError)")
                     continuation.finish()
                 } catch let urlError as URLError where urlError.code == .cancelled {
+                    Log.network.info("OpenAI stream cancelled (URLError.cancelled)")
                     continuation.finish()
                 } catch {
                     Log.network.error("OpenAI stream error: \(error.localizedDescription)")

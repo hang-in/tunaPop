@@ -7,6 +7,7 @@ final class SelectionMonitor {
     private var dragStart: CGPoint?
     private var didDrag = false
     private let onSelection: (SelectionPayload, CGPoint) -> Void
+    private var triggerTask: Task<Void, Never>?
 
     init(onSelection: @escaping (SelectionPayload, CGPoint) -> Void) {
         self.onSelection = onSelection
@@ -32,6 +33,8 @@ final class SelectionMonitor {
     }
 
     func stop() {
+        triggerTask?.cancel()
+        triggerTask = nil
         for monitor in monitors {
             NSEvent.removeMonitor(monitor)
         }
@@ -45,6 +48,8 @@ final class SelectionMonitor {
         switch type {
         case .leftMouseDown:
             if Log.isVerbose { Log.selection.debug("mouseDown clickCount=\(clickCount)") }
+            triggerTask?.cancel()
+            triggerTask = nil
             dragStart = location
             didDrag = false
             if clickCount >= 2 {
@@ -65,12 +70,28 @@ final class SelectionMonitor {
     }
 
     private func triggerSelection(delayMillis: Int) {
+        triggerTask?.cancel()
         let point = NSEvent.mouseLocation
+        let initialApp = NSWorkspace.shared.frontmostApplication
         if Log.isVerbose { Log.selection.debug("triggerSelection delay=\(delayMillis)") }
-        Task {
-            try? await Task.sleep(for: .milliseconds(delayMillis))
-            guard let payload = await SelectionExtractor.currentSelection() else { return }
-            onSelection(payload, point)
+        triggerTask = Task {
+            do {
+                try await Task.sleep(for: .milliseconds(delayMillis))
+                guard !Task.isCancelled else { return }
+                
+                let currentApp = NSWorkspace.shared.frontmostApplication
+                if initialApp?.processIdentifier != currentApp?.processIdentifier {
+                    if Log.isVerbose { Log.selection.debug("frontmost application changed during delay") }
+                    return
+                }
+                
+                guard let payload = await SelectionExtractor.currentSelection() else { return }
+                guard !Task.isCancelled else { return }
+                
+                onSelection(payload, point)
+            } catch {
+                // Sleep cancelled
+            }
         }
     }
 }

@@ -149,8 +149,10 @@ struct OllamaClient: LLMClient {
                     continuation.yield(.done(result))
                     continuation.finish()
                 } catch is CancellationError {
+                    Log.network.info("Ollama stream cancelled (CancellationError)")
                     continuation.finish()
                 } catch let urlError as URLError where urlError.code == .cancelled {
+                    Log.network.info("Ollama stream cancelled (URLError.cancelled)")
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)

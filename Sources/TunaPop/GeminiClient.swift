@@ -174,8 +174,10 @@ struct GeminiClient: LLMClient {
                     continuation.finish()
 
                 } catch is CancellationError {
+                    Log.network.info("Gemini stream cancelled (CancellationError)")
                     continuation.finish()
                 } catch let urlError as URLError where urlError.code == .cancelled {
+                    Log.network.info("Gemini stream cancelled (URLError.cancelled)")
                     continuation.finish()
                 } catch {
                     Log.network.error("Gemini stream error on path \(endpoint): \(error.localizedDescription)")

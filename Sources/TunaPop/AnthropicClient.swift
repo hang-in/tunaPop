@@ -127,8 +127,10 @@ struct AnthropicClient: LLMClient {
                     continuation.finish()
 
                 } catch is CancellationError {
+                    Log.network.info("Anthropic stream cancelled (CancellationError)")
                     continuation.finish()
                 } catch let urlError as URLError where urlError.code == .cancelled {
+                    Log.network.info("Anthropic stream cancelled (URLError.cancelled)")
                     continuation.finish()
                 } catch {
                     Log.network.error("Anthropic stream error: \(error.localizedDescription)")

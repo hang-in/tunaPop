@@ -12,6 +12,9 @@ final class LLMTaskRunner {
     }
 
     func cancel() {
+        if currentTask != nil {
+            Log.network.info("LLMTaskRunner cancel() called: cancelling active task")
+        }
         currentTask?.cancel()
         currentTask = nil
     }
@@ -66,10 +69,11 @@ final class LLMTaskRunner {
                     }
                 }
             } catch is CancellationError {
-                // silent
+                Log.network.info("LLMTaskRunner currentTask cancelled (CancellationError)")
             } catch let urlError as URLError where urlError.code == .cancelled {
-                // silent
+                Log.network.info("LLMTaskRunner currentTask cancelled (URLError.cancelled)")
             } catch {
+                Log.network.error("LLMTaskRunner currentTask error: \(error.localizedDescription)")
                 self?.responsePanel.update(state: .failure(error.localizedDescription))
             }
             self?.currentTask = nil
