@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 16
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+      - name: Import signing certificate
+        if: ${{ secrets.MAC_CERTIFICATE_BASE64 != '' }}
+        env:
+          MAC_CERTIFICATE_BASE64: ${{ secrets.MAC_CERTIFICATE_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+        run: scripts/import-cert.sh
+      - name: Package and notarize
+        env:
+          DEVELOPER_ID: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
+        run: scripts/package.sh
+      - name: Sign for Sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        if: ${{ env.SPARKLE_PRIVATE_KEY != '' }}
+        run: scripts/sparkle-sign.sh
+      - name: Update appcast
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: scripts/update-appcast.sh
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/tunaPop-*.dmg
+            appcast.xml

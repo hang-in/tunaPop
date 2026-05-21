@@ -1,7 +1,21 @@
 import SwiftUI
 
+extension Bundle {
+    var appVersionDisplay: String {
+        if let version = object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+           !version.isEmpty {
+            return version
+        }
+        return "0.1.0"
+    }
+}
+
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
+
+    private static var appDelegate: AppDelegate? {
+        NSApplication.shared.delegate as? AppDelegate
+    }
 
     @State private var fetchedModels: [String] = []
     @State private var lastFetched: Date?
@@ -15,6 +29,20 @@ struct SettingsView: View {
     @State private var editingAction: Action = Action(id: "", label: "", prompt: "", systemImage: "text.bubble")
     @State private var editingIndex: Int? = nil
     @State private var editingBuiltinId: String? = nil
+
+    private var endpointSelection: Binding<String> {
+        Binding<String>(
+            get: { settings.endpoint },
+            set: { settings.endpoint = $0 }
+        )
+    }
+
+    private var apiTokenSelection: Binding<String> {
+        Binding<String>(
+            get: { settings.apiToken },
+            set: { settings.apiToken = $0 }
+        )
+    }
 
     private var showsCustomModelField: Bool {
         settings.model.isEmpty || !fetchedModels.contains(settings.model)
@@ -46,7 +74,13 @@ struct SettingsView: View {
                         Text(provider.displayName).tag(provider)
                     }
                 }
-                TextField("Endpoint", text: $settings.endpoint)
+                .onChange(of: settings.agentProvider) { _, _ in
+                    Task {
+                        await refreshModels()
+                    }
+                }
+                
+                TextField("Endpoint", text: endpointSelection)
                     .textFieldStyle(.roundedBorder)
                 
                 if !isLocalEndpoint(settings.endpoint) {
@@ -92,20 +126,20 @@ struct SettingsView: View {
                         }
                 }
                 
-                SecureField("API token", text: $settings.apiToken)
-                    .textFieldStyle(.roundedBorder)
+                SecureField(
+                    settings.agentProvider.requiresAPIKey ? "API token" : "API token (선택)",
+                    text: apiTokenSelection
+                )
+                .textFieldStyle(.roundedBorder)
             }
             
-            Section("응답 언어") {
-                Picker("AI 응답 언어", selection: $settings.responseLanguage) {
+            Section("환경") {
+                Picker("응답 언어", selection: $settings.responseLanguage) {
                     ForEach(ResponseLanguage.allCases) { language in
                         Text(language.displayName).tag(language)
                     }
                 }
-            }
-
-            Section("ActionBar") {
-                Picker("위치", selection: $settings.actionBarPosition) {
+                Picker("ActionBar 위치", selection: $settings.actionBarPosition) {
                     Text("↖ Top Left").tag(ActionBarPosition.topLeft)
                     Text("↑ Top").tag(ActionBarPosition.top)
                     Text("↗ Top Right").tag(ActionBarPosition.topRight)
@@ -145,7 +179,17 @@ struct SettingsView: View {
                     action: { openSystemSettings(.accessibility) }
                 )
             }
-            
+
+            Section("고급") {
+                Button("업데이트 확인...") {
+                    Self.appDelegate?.updater.checkForUpdates()
+                }
+                Toggle("진단 로그 표시", isOn: $settings.verboseLogging)
+                Text("켜면 Console.app에서 subsystem:app.tunapop 으로 자세한 로그를 볼 수 있습니다.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             Section {
                 if let error = fetchError, isLocalEndpoint(settings.endpoint) {
                     Text(error)
@@ -153,12 +197,23 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                 }
             }
+
+            Section {
+                HStack {
+                    Spacer()
+                    Text("tunaPop v\(Bundle.main.appVersionDisplay)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            }
         }
-        .padding(20)
-        .frame(width: 460)
+        .formStyle(.grouped)
+        .frame(width: 480)
         .sheet(isPresented: $isEditing) {
             CustomActionEditor(
                 action: $editingAction,
+                usedSymbols: usedSymbols(excludingId: editingBuiltinId ?? editingAction.id),
                 onCommit: { committed in
                     if let bid = editingBuiltinId {
                         settings.builtinOverrides[bid] = committed
@@ -199,7 +254,7 @@ struct SettingsView: View {
         fetchError = nil
         defer { isFetching = false }
         do {
-            let client = OllamaClient(endpoint: settings.endpoint, token: settings.apiToken)
+            let client = LLMClientFactory.make(for: settings)
             fetchedModels = try await client.listModels()
             lastFetched = Date()
             
@@ -256,6 +311,8 @@ struct SettingsView: View {
     private func builtInRow(action: Action, originalId: String) -> some View {
         let isHidden = settings.isHidden(originalId)
         let isOverridden = settings.builtinOverrides[originalId] != nil
+        let visibleBuiltinCount = Action.allBuiltins.filter { !settings.isHidden($0.id) }.count
+        let isLastVisible = !isHidden && visibleBuiltinCount <= 1
         HStack(spacing: 8) {
             Image(systemName: action.systemImage)
                 .foregroundStyle(isHidden ? .secondary : .primary)
@@ -285,7 +342,8 @@ struct SettingsView: View {
                 Image(systemName: isHidden ? "eye.slash" : "eye")
             }
             .buttonStyle(.borderless)
-            .help(isHidden ? "숨김 해제" : "숨기기")
+            .help(isLastVisible ? "마지막 기본 액션은 숨길 수 없습니다" : (isHidden ? "숨김 해제" : "숨기기"))
+            .disabled(isLastVisible)
             Button {
                 settings.resetBuiltin(originalId)
             } label: {
@@ -347,6 +405,20 @@ struct SettingsView: View {
             prompt: "",
             systemImage: "text.bubble"
         )
+    }
+
+    private func usedSymbols(excludingId: String) -> Set<String> {
+        var symbols: Set<String> = []
+        for action in Action.allBuiltins {
+            let resolved = settings.resolvedBuiltin(action)
+            if resolved.id == excludingId { continue }
+            symbols.insert(resolved.systemImage)
+        }
+        for action in settings.customActions {
+            if action.id == excludingId { continue }
+            symbols.insert(action.systemImage)
+        }
+        return symbols
     }
 
     private func moveUp(action: Action) {

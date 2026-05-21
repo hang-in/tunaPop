@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>tunaPop</string>
+    <key>CFBundleDisplayName</key>
+    <string>tunaPop</string>
+    <key>CFBundleIdentifier</key>
+    <string>app.tunapop</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>tunaPop은 선택한 텍스트를 감지하기 위해 손쉬운 사용 접근 권한이 필요합니다.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>tunaPop은 일부 앱에서 텍스트 선택을 가져오기 위해 자동화 권한이 필요합니다.</string>
+    <key>SUFeedURL</key>
+    <string>https://tunapop.app/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
+    <key>SUPublicEDKey</key>
+    <string>REPLACE_WITH_SPARKLE_PUBLIC_KEY</string>
+</dict>
+</plist>

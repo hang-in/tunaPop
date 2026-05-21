@@ -37,7 +37,7 @@ final class ResponsePanel {
     }
 
     func setPinned(_ pinned: Bool) {
-        NSLog("tunaPop ResponsePanel.setPinned: \(pinned) (was \(isPinned))")
+        if Log.isVerbose { Log.popup.debug("ResponsePanel setPinned new=\(pinned) was=\(self.isPinned)") }
         self.isPinned = pinned
         update(state: currentState)
     }
@@ -87,7 +87,7 @@ final class ResponsePanel {
     }
 
     func dismiss() {
-        NSLog("tunaPop ResponsePanel.dismiss called (was pinned=\(isPinned))")
+        if Log.isVerbose { Log.popup.debug("ResponsePanel dismiss called pinned=\(self.isPinned)") }
         panel?.orderOut(nil)
         panel?.alphaValue = 1.0
         isVisible = false
@@ -96,7 +96,7 @@ final class ResponsePanel {
     }
 
     func dismissAnimated(completion: @escaping @MainActor () -> Void) {
-        NSLog("tunaPop ResponsePanel.dismissAnimated called (was pinned=\(isPinned))")
+        if Log.isVerbose { Log.popup.debug("ResponsePanel dismissAnimated called pinned=\(self.isPinned)") }
         guard let panel, isVisible else {
             completion()
             return

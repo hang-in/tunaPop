@@ -39,7 +39,7 @@ extension Action {
     static let defaults: [Action] = [
         Action(id: "explain",   label: "설명", prompt: "Explain this selection clearly and concisely.",            systemImage: "text.bubble"),
         Action(id: "summarize", label: "요약", prompt: "Summarize this selection in three bullets.",                systemImage: "list.bullet.rectangle"),
-        Action(id: "translate", label: "번역", prompt: "Translate this selection into Korean. Keep meaning and tone.", systemImage: "character.bubble"),
+        Action(id: "translate", label: "번역", prompt: "Translate this selection. Keep meaning and tone.", systemImage: "character.bubble"),
     ]
 
     static let systemDefaults: [Action] = [

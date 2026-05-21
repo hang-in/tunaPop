@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CustomActionEditor: View {
     @Binding var action: Action
+    var usedSymbols: Set<String> = []
     let onCommit: (Action) -> Void
     let onCancel: () -> Void
 
@@ -57,7 +58,7 @@ struct CustomActionEditor: View {
 
             Text("아이콘")
                 .font(.subheadline)
-            SymbolGridPicker(selection: $systemImage)
+            SymbolGridPicker(selection: $systemImage, usedSymbols: usedSymbols)
 
             HStack {
                 Spacer()

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Sparkle
 
 @main
 struct TunaPopApp: App {
@@ -16,6 +17,14 @@ struct TunaPopApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let settings = AppSettings()
+    let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
+
+    var updater: SPUUpdater { updaterController.updater }
+
     private var statusItem: NSStatusItem?
     private var monitor: SelectionMonitor?
     private var popupController: PopupController?
@@ -34,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 guard let self, let controller = self.popupController else { return }
                 if controller.isPointInOwnPanels(point) {
-                    NSLog("tunaPop selection callback: ignored (point in own panel)")
+                    if Log.isVerbose { Log.selection.debug("selection callback ignored, point in own panel") }
                     return
                 }
                 controller.show(payload: payload, at: point)
@@ -43,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         configureStatusItem()
         Accessibility.requestIfNeeded()
-        NSLog("tunaPop permissions at launch: AX=\(Accessibility.isTrusted) InputMonitoring=\(InputMonitoring.isTrusted)")
+        Log.permissions.info("at launch AX=\(Accessibility.isTrusted) IM=\(InputMonitoring.isTrusted)")
         updateStatusItemAppearance()
         toggleSelectionMonitoring()
 
@@ -83,8 +92,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         if settingsWindow == nil {
+            let hostingView = NSHostingView(rootView: SettingsView(settings: settings))
+            let fitting = hostingView.fittingSize
+            let contentSize = NSSize(
+                width: max(fitting.width, 480),
+                height: max(fitting.height, 360)
+            )
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 320),
+                contentRect: NSRect(origin: .zero, size: contentSize),
                 styleMask: [.titled, .closable, .resizable],
                 backing: .buffered,
                 defer: false
@@ -92,7 +107,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.title = "tunaPop Settings"
             window.center()
             window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView: SettingsView(settings: settings))
+            window.contentView = hostingView
+            window.setContentSize(contentSize)
             settingsWindow = window
         }
         NSApp.activate(ignoringOtherApps: true)

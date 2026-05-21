@@ -19,6 +19,22 @@ tunaPop은 macOS에서 텍스트를 선택했을 때 팝업 창을 통해 AI 기
 - macOS 14.0 이상 (Swift 5.9 이상, AppKit 및 SwiftUI)
 - 로컬 또는 원격 Ollama 서버 (기본값: http://localhost:11434)
 
+### 설치 (OSS 빌드)
+
+서명되지 않은 빌드라 macOS가 처음 실행 시 차단합니다. 아래 방법으로 실행할 수 있습니다.
+
+#### 방법 1 (Homebrew, 권장)
+```bash
+brew tap hang-in/tap
+brew install --cask tunapop
+```
+
+#### 방법 2 (DMG 직접 설치)
+1. GitHub Releases에서 `tunaPop-x.y.z.dmg` 다운로드 후 마운트합니다.
+2. `tunaPop.app`을 `/Applications` (응용 프로그램) 폴더로 드래그합니다.
+3. `tunaPop.app`을 마우스 우클릭 -> **열기**를 선택합니다. (최초 1회만 필요)
+   또는 **시스템 설정** -> **개인정보 보호 및 보안** -> **어쨌든 열기**를 클릭하여 실행합니다.
+
 ### 빌드 및 실행
 
 프로젝트 루트 디렉토리에서 아래 명령어를 실행하여 앱을 빌드하고 실행할 수 있습니다.

@@ -52,7 +52,7 @@ final class PopupController {
 
     func show(payload: SelectionPayload, at anchor: CGPoint) {
         if case .loading = responsePanel.currentState {
-            NSLog("tunaPop show ignored: response still loading")
+            if Log.isVerbose { Log.popup.debug("show ignored, still loading") }
             return
         }
         currentTask?.cancel()
@@ -77,7 +77,7 @@ final class PopupController {
     }
 
     func dismiss() {
-        NSLog("tunaPop dismiss: called")
+        if Log.isVerbose { Log.popup.debug("dismiss called") }
         currentTask?.cancel()
         currentTask = nil
         cancelHideTimer()
@@ -120,30 +120,37 @@ final class PopupController {
         currentTask?.cancel()
         let prompt = resolvePrompt(for: action, payload: payload)
         let payloadCopy = payload
-        let endpoint = settings.endpoint
-        let token = settings.apiToken
         let model = settings.model
         let includeContext = !action.prompt.contains("{selection}")
         let systemPrompt = buildSystemPrompt(settings.responseLanguage)
 
         currentTask = Task { @MainActor [weak self] in
             do {
-                let client = OllamaClient(endpoint: endpoint, token: token)
-                let result = try await client.chat(
+                guard let self else { return }
+                let client = LLMClientFactory.make(for: self.settings)
+                let stream = client.chatStream(
                     model: model,
                     prompt: prompt,
                     payload: payloadCopy,
                     includeSelectionContext: includeContext,
                     systemPrompt: systemPrompt
                 )
-                try Task.checkCancellation()
-                guard let self else { return }
-                self.lastResponse = result.content
-                let metadata = ResponseMetadata(
-                    model: result.model,
-                    totalTokens: result.promptEvalCount + result.evalCount
-                )
-                self.responsePanel.update(state: .success(result.content, metadata))
+                var accumulated = ""
+                for try await event in stream {
+                    try Task.checkCancellation()
+                    switch event {
+                    case .chunk(let piece):
+                        accumulated += piece
+                        self.responsePanel.update(state: .success(accumulated, nil))
+                    case .done(let result):
+                        self.lastResponse = result.content.isEmpty ? accumulated : result.content
+                        let metadata = ResponseMetadata(
+                            model: result.model,
+                            totalTokens: result.promptTokens + result.completionTokens
+                        )
+                        self.responsePanel.update(state: .success(self.lastResponse, metadata))
+                    }
+                }
             } catch is CancellationError {
                 return
             } catch let urlError as URLError where urlError.code == .cancelled {
@@ -163,9 +170,8 @@ final class PopupController {
 
     private func toggleResponsePinned() {
         let beforePinned = responsePanel.pinned
-        NSLog("tunaPop togglePin: before=\(beforePinned)")
         responsePanel.setPinned(!beforePinned)
-        NSLog("tunaPop togglePin: after=\(responsePanel.pinned)")
+        if Log.isVerbose { Log.popup.debug("togglePin before=\(beforePinned) after=\(self.responsePanel.pinned)") }
         if !responsePanel.pinned {
             updateHoverState()
         } else {
@@ -180,14 +186,20 @@ final class PopupController {
         if let overResponse {
             self.isHoveringResponsePanel = overResponse
         }
-        NSLog("tunaPop hoverState: actionBar=\(isHoveringActionBar) response=\(isHoveringResponsePanel) pinned=\(responsePanel.pinned)")
+        if Log.isVerbose { Log.popup.debug("hoverState actionBar=\(self.isHoveringActionBar) response=\(self.isHoveringResponsePanel) pinned=\(self.responsePanel.pinned)") }
 
         if isHoveringActionBar || isHoveringResponsePanel {
             cancelHideTimer()
         } else {
-            if responsePanel.pinned { NSLog("tunaPop hoverState: skip schedule (pinned)"); return }
-            if case .loading = responsePanel.currentState { NSLog("tunaPop hoverState: skip schedule (loading)"); return }
-            NSLog("tunaPop hoverState: scheduling hide timer")
+            if responsePanel.pinned {
+                if Log.isVerbose { Log.popup.debug("hoverState skip schedule pinned") }
+                return
+            }
+            if case .loading = responsePanel.currentState {
+                if Log.isVerbose { Log.popup.debug("hoverState skip schedule loading") }
+                return
+            }
+            if Log.isVerbose { Log.popup.debug("hoverState scheduling hide timer") }
             scheduleHideTimer()
         }
     }
@@ -237,13 +249,13 @@ final class PopupController {
     private func dismissIfOutside(_ point: CGPoint) {
         let inAction = actionBarPanel.contains(point: point)
         let inResponse = responsePanel.contains(point: point)
-        NSLog("tunaPop dismissIfOutside: point=\(point) inAction=\(inAction) inResponse=\(inResponse) pinned=\(responsePanel.pinned) responseFrame=\(responsePanel.frame)")
+        if Log.isVerbose { Log.popup.debug("dismissIfOutside inAction=\(inAction) inResponse=\(inResponse) pinned=\(self.responsePanel.pinned)") }
         if inAction || inResponse {
             return
         }
         if responsePanel.pinned { return }
         if case .loading = responsePanel.currentState { return }
-        NSLog("tunaPop dismissIfOutside: dismissing")
+        if Log.isVerbose { Log.popup.debug("dismissIfOutside dismissing") }
         dismiss()
     }
 

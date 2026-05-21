@@ -25,9 +25,9 @@ final class SelectionMonitor {
             }
         }) {
             monitors.append(monitor)
-            NSLog("tunaPop SelectionMonitor: started (axTrusted=\(Accessibility.isTrusted))")
+            Log.selection.info("SelectionMonitor started (axTrusted=\(Accessibility.isTrusted))")
         } else {
-            NSLog("tunaPop SelectionMonitor: addGlobalMonitorForEvents returned nil")
+            Log.selection.error("addGlobalMonitorForEvents returned nil")
         }
     }
 
@@ -44,7 +44,7 @@ final class SelectionMonitor {
     private func handle(type: NSEvent.EventType, location: CGPoint, clickCount: Int) {
         switch type {
         case .leftMouseDown:
-            NSLog("tunaPop SelectionMonitor: mouseDown clickCount=\(clickCount) loc=\(location)")
+            if Log.isVerbose { Log.selection.debug("mouseDown clickCount=\(clickCount)") }
             dragStart = location
             didDrag = false
             if clickCount >= 2 {
@@ -66,7 +66,7 @@ final class SelectionMonitor {
 
     private func triggerSelection(delayMillis: Int) {
         let point = NSEvent.mouseLocation
-        NSLog("tunaPop SelectionMonitor: triggerSelection at \(point) delay=\(delayMillis)")
+        if Log.isVerbose { Log.selection.debug("triggerSelection delay=\(delayMillis)") }
         Task {
             try? await Task.sleep(for: .milliseconds(delayMillis))
             guard let payload = await SelectionExtractor.currentSelection() else { return }

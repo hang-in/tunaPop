@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SymbolGridPicker: View {
     @Binding var selection: String
+    var usedSymbols: Set<String> = []
 
     static let curated: [String] = [
         "text.bubble", "list.bullet.rectangle", "character.bubble",
@@ -23,12 +24,16 @@ struct SymbolGridPicker: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(Self.curated, id: \.self) { name in
+                    let isUsed = usedSymbols.contains(name) && name != selection
                     Button {
-                        selection = name
+                        if !isUsed {
+                            selection = name
+                        }
                     } label: {
                         Image(systemName: name)
                             .font(.system(size: 16))
                             .frame(width: 32, height: 32)
+                            .opacity(isUsed ? 0.25 : 1.0)
                             .background(
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(selection == name ? Color.accentColor.opacity(0.25) : Color.clear)
@@ -43,7 +48,8 @@ struct SymbolGridPicker: View {
                             .contentShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
-                    .help(name)
+                    .disabled(isUsed)
+                    .help(isUsed ? "\(name) — 이미 사용 중" : name)
                 }
             }
             .padding(.vertical, 4)

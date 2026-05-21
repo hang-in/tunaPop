@@ -43,8 +43,7 @@ final class ActionBarPanel {
         let origin = position.origin(forAnchor: anchor, barSize: size)
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
         panel.orderFrontRegardless()
-        panel.orderFrontRegardless()
-        NSLog("tunaPop ActionBarPanel: show origin=\(origin) size=\(size) visible=\(panel.isVisible) alpha=\(panel.alphaValue) level=\(panel.level.rawValue)")
+        if Log.isVerbose { Log.popup.debug("ActionBarPanel show size=\(size.width)x\(size.height) level=\(panel.level.rawValue)") }
         isVisible = true
     }
 
