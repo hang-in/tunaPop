@@ -28,7 +28,7 @@ jobs:
       - name: Sign for Sparkle
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        if: ${{ env.SPARKLE_PRIVATE_KEY != '' }}
+        if: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
         run: scripts/sparkle-sign.sh
       - name: Update appcast
         env:
