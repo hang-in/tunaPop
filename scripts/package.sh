@@ -26,6 +26,19 @@ cp .build/apple/Products/Release/TunaPop "$APP/Contents/MacOS/tunaPop"
 cp Sources/TunaPop/Resources/Info.plist "$APP/Contents/Info.plist"
 cp Sources/TunaPop/Resources/PrivacyInfo.xcprivacy "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
 
+# Copy Sparkle.framework (binary's rpath includes @executable_path/../lib)
+SPARKLE_FRAMEWORK="$(find .build/artifacts -type d -name 'Sparkle.framework' -path '*macos-arm64_x86_64*' 2>/dev/null | head -1)"
+if [ -z "$SPARKLE_FRAMEWORK" ]; then
+    SPARKLE_FRAMEWORK=".build/apple/Products/Release/Sparkle.framework"
+fi
+if [ -d "$SPARKLE_FRAMEWORK" ]; then
+    mkdir -p "$APP/Contents/lib"
+    cp -R "$SPARKLE_FRAMEWORK" "$APP/Contents/lib/"
+    echo "Embedded Sparkle.framework from $SPARKLE_FRAMEWORK"
+else
+    echo "WARNING: Sparkle.framework not found; app may fail to launch."
+fi
+
 # Update versions in Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(date +%s)" "$APP/Contents/Info.plist"

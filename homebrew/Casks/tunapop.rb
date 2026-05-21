@@ -1,6 +1,6 @@
 cask "tunapop" do
   version "0.1.0"
-  sha256 "6cbff6ed0aa141ebf95702ab277003048c78500754b71d8dc60f03e0e85c9010"
+  sha256 "e4c38e03a468a189ef66915fc4553bf8ce8a35ba3d94f5aa83d5e15a20ef421b"
 
   url "https://github.com/hang-in/tunapop/releases/download/v#{version}/tunaPop-#{version}.dmg"
   name "tunaPop"
