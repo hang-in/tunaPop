@@ -43,16 +43,25 @@ fi
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(date +%s)" "$APP/Contents/Info.plist"
 
-# Code sign if DEVELOPER_ID is provided
+# Code sign if DEVELOPER_ID is provided; otherwise ad-hoc sign (needed for
+# stable TCC bundle identity on macOS 14+).
 DEVELOPER_ID=${DEVELOPER_ID:-}
 if [ -n "$DEVELOPER_ID" ]; then
-    echo "Signing app bundle..."
+    echo "Signing app bundle with Developer ID..."
+    if [ -d "$APP/Contents/lib/Sparkle.framework" ]; then
+        codesign --force --options runtime --sign "$DEVELOPER_ID" \
+            "$APP/Contents/lib/Sparkle.framework"
+    fi
     codesign --deep --force --options runtime \
         --sign "$DEVELOPER_ID" \
         --entitlements scripts/entitlements.plist \
         "$APP"
 else
-    echo "DEVELOPER_ID not set, skipping code signing."
+    echo "DEVELOPER_ID not set; applying ad-hoc signature."
+    if [ -d "$APP/Contents/lib/Sparkle.framework" ]; then
+        codesign --force --sign - "$APP/Contents/lib/Sparkle.framework"
+    fi
+    codesign --deep --force --sign - "$APP"
 fi
 
 # Create DMG and notarize if APPLE_ID/APP_PASSWORD are provided
