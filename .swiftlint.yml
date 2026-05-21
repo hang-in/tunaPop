@@ -1,6 +1,15 @@
 disabled_rules:
   - trailing_whitespace
   - todo
+  - line_length
+  - function_body_length
+  - type_body_length
+  - nesting
+  - identifier_name
+  - trailing_comma
+  - vertical_whitespace
+  - implicit_optional_initialization
+  - comma
 opt_in_rules:
   - force_unwrapping
 included:

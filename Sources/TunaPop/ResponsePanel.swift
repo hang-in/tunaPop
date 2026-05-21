@@ -101,6 +101,7 @@ final class ResponsePanel {
             NSApp.activate(ignoringOtherApps: true)
         } else {
             panel.resignKey()
+            NSApp.deactivate()
         }
     }
 
@@ -111,6 +112,7 @@ final class ResponsePanel {
         isVisible = false
         currentState = .idle
         isPinned = false
+        NSApp.deactivate()
     }
 
     func dismissAnimated(completion: @escaping @MainActor () -> Void) {
@@ -134,6 +136,7 @@ final class ResponsePanel {
                 self.isVisible = false
                 self.currentState = .idle
                 self.isPinned = false
+                NSApp.deactivate()
                 completion()
             }
         })
