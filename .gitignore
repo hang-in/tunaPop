@@ -1,0 +1,12 @@
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserdata/
+.DS_Store
+
+# Exclude all markdown files except root README.md
+**/*.md
+*.md
+!/README.md
+
+.antigravitycli/
