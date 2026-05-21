@@ -40,8 +40,12 @@ brew install --cask tunapop
 #### 방법 2 (DMG 직접 설치)
 1. GitHub Releases에서 `tunaPop-x.y.z.dmg` 다운로드 후 마운트합니다.
 2. `tunaPop.app`을 `/Applications` (응용 프로그램) 폴더로 드래그합니다.
-3. `tunaPop.app`을 마우스 우클릭 -> **열기**를 선택합니다. (최초 1회만 필요)
-   혹은 **시스템 설정** -> **개인정보 보호 및 보안** -> **어쨌든 열기**를 클릭하여 실행합니다.
+3. 격리 속성을 제거하여 서명되지 않은 번들을 macOS가 실행하도록 허용합니다:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/tunaPop.app
+   ```
+   혹은 `tunaPop.app`을 마우스 우클릭 -> **열기** (최초 1회만 필요), 또는
+   **시스템 설정** -> **개인정보 보호 및 보안** -> **어쨌든 열기**를 클릭합니다.
 
 ### 빌드 및 실행
 
